@@ -251,8 +251,29 @@ Llm: L2 loss of predicted value and labels; Lrf与Lcls相同
 ## 9. Inside-Outside Net (ION)
 **Inside-Outside Net: Detecting Objects in Context with Skip Pooling and Recurrent Neural Networks** [[Paper](https://arxiv.org/pdf/1512.04143.pdf)]: Microsoft RGB
 
-**特点**:预测的时候使用通过spatial RNN整合了contextual information（ION结构）；在ROI区域用skip pooling提取不同尺度的特征。
+**特点**:预测的时候使用通过spatial RNN整合了contextual information（ION结构）；在ROI区域用skip pooling提取不同尺度的特征；将这两者连接作为网络的输入。
 
 ![image37](pic/Selection_086.png)
 #### Model Structure
-![image38](pic/Selection_087.png)
+![image38](pic/Selection_085.png)
+
+2k ROI from raw image (RCNN) --> conv3,4,5+context feature --> L2 normalization， concatenate， re-scale, dimension reduced (1x1 conv) --> 512x7x7 (**由vgg16决定**) <br>
+此外，由于需要结合多层的feature，需要减少1x1conv层初始weight的大小，使用 **Xavier initialization**
+
+**Context feature with IRNNs** <br>
+![image39](pic/Selection_087.png)
+
+RNN输入序列的的4个读取方向：上下左右。这里采用的RNN为 **ReLU RNN**（recurrent weight matrix初始化为 **identity matrix**，梯度可以完全通过BP传递。效果可以和LSMTM一样好，但是内存，计算速度可以提升很多）。（常用的RNN结构为GRU， LSTM， plain tanh recurrent nn）
+
+使用 **1x1 conv** 作为input-to-hidden transition，因为可以被各个方向共享。bias也可以通过这个方式共享然后整合到1x1 conv层中。然后IRNN的输出以4个方向的隐含层依次连接。
+
+IRNN从左到右的update如下，其他方向类似：<br>
+![image40](pic/Selection_089.png)
+
+而当将hiden transition matrix固定为单位阵的时候，上式就可以简化为：
+![image41](pic/Selection_090.png)
+
+在每个方向，平行计算所有独立的行和列而非每次计算一个RNN cell；使用semantic label来regularize IRNN输出，这个时候需要添加一层deconv层（32x32 kernel放大16倍）并crop；经过测试在连接各层输出的时候 **不需要dropout**；在训练RNN的时候bias也是不需要的。
+
+第一个4向IRNN输出的feature map就汇总了每个cell周边的feature，随后的1x1 conv层将这些信息混合并降维。在第二个IRNN后，每个cell的输出与输入与输入相关，因此此时的context feature包含了 **global和local** 的信息，feature随位置而改变。<br>
+![image42](pic/Selection_088.png)
