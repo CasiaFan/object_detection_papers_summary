@@ -277,3 +277,48 @@ IRNN从左到右的update如下，其他方向类似：<br>
 
 第一个4向IRNN输出的feature map就汇总了每个cell周边的feature，随后的1x1 conv层将这些信息混合并降维。在第二个IRNN后，每个cell的输出与输入与输入相关，因此此时的context feature包含了 **global和local** 的信息，feature随位置而改变。<br>
 ![image42](pic/Selection_088.png)
+
+
+---
+# 10. R-FCN
+**R-FCN: Object Detection via Region-based Fully Convolutional Networks** [[Paper](https://arxiv.org/pdf/1605.06409.pdf)] [[Code]( https://github.com/daijifeng001/R-FCN)] : Kaiming He
+
+**特点**：fully convolutional, computation shared on entire image, position-sensitive score map
+
+![image43](pic/Selection_092.png)
+
+#### Model structure
+region proposal (RPN) + region classification。最后一层feature map对每个类+背景生成一个k<sup>2</sup> **position-sensitive** （top-left, ..., bottom right） score map，因此总共有k<sup>2</sup>(C+1)个channel。RFCN最后一层是position-sensitive ROI pooling层，合并conv层的结果输出每个ROI的score，但是这里用的是selective pooling（与fast rcnn中不同），每一个kxk的bin都只是来自kxk层score map的其中一层。
+
+![image44](pic/Selection_091.png)
+
+![image45](pic/Selection_096.png)
+
+**Base Net**: ResNet101 + 1x1 conv (2048d->1024d) + k<sup>2</sup>(C+1)-channel conv层
+
+**position-sensitive score map/pooling**<br>
+将ROI分成k x k个格子，每个格子w x h；然后对(i,j)格子的score map进行pooling（**position-sensitive ROI pooling**）。<br>
+![image46](pic/Selection_094.png)
+
+其中r是第(i,j)格子的对于类型c的pooled response，z是k<sup>2</sup>(C+1)个score map的其中一个，n是bin中包含的pixel数（所以是average pooling）
+
+然后这个k<sup>2</sup> position-sensitive score对这个ROI使用average scroe进行投票，生成一个C+1维vector，然后计算softmax（分类score）。 <br>
+![image47](pic/Selection_098.png)
+
+![image48](pic/Selection_099.png)
+
+类似的，在上述k<sup>2</sup>(C+1)d的conv层添加 **4k<sup>2</sup>d** 的conv层用于bbox coordinate regression，输出向量为4k<sup>2</sup>向量，然后通过average voting整合到4d向量（t=(tx,ty,tw,th)）。**注意，这里为了简化计算用的是class agnostic进行box回归，如果需要用class-specifi，那么添加的conv层为4k<sup>2</sup>C。** （ROI层以后不需要学习，所以训练时候的计算量可以忽略）
+
+![image50](pic/Selection_093.png)
+#### training
+**Loss**: IoU > 0.5为正例<br>
+![image49](pic/Selection_097.png)
+
+**OHEM**
+
+input image: 600 (短边)
+
+**Algorithme à trous**: improve mAP 2.6%
+
+#### inference
+300 ROI， NMS with IoU = 0.3
