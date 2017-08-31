@@ -322,3 +322,32 @@ input image: 600 (短边)
 
 #### inference
 300 ROI， NMS with IoU = 0.3
+
+# 11. RetinaNet (Focal loss)
+**Focal Loss for Dense Object Detection**: [[Paper](https://arxiv.org/pdf/1708.02002.pdf)] [[Code]()]: Kaiming He, Ross Girshick et.al
+
+**特点：** focal loss来代替standard cross entropy loss，防止由于foreground-background class imbalance (比如1:1000)造成的容易检测的样本(easy negatives)累积的loss超过难检测的样本(hard negatives)从而控制了检测过程。
+思想类似于OHEM，但是这里直接从loss入手，不用像OHEM一样对训练样本进行操作。
+
+#### Focal Loss
+这里Focal loss是被用于one-stage object detection框架(YOLO, SSD, FPN等)，在two-stage框架(RCNN+RPN)中应该会取得更好的效果。
+
+对于原始的cross-entropy：![image51](pic/Selection_137.png)，如果定义![image52](pic/Selection_138.png),则 **CE(p, y) = CE(Pt) = -log(Pt)**。引入权重α∈[0, 1] for class 1 and 1-α for class -1表示样本偏差对CE的影响：**CE(Pt) = -α<sub>t</sub>log(Pt)**。
+
+但是这样的α只对正负样本的重要性做了平衡（比如样本数量），无法区分 **容易训练/不容易训练** 的样本。所以引入调控因子 **(1-Pt)<sup>γ</sup>**，其中γ>=0: Focal-Loss为![image53](pic/Selection_139.png)。
+其中当γ=0的时候，FL=CE。直观来看， **当Pt趋向1的时候，因子会变得更小，这个容易分类的样本的loss也就越小**。当γ=2 (在实际操作中，**γ=2， α=0.25效果最好**)，pt=0.9的时候，FL的值比原来的CE值小100倍；而当pt=0.968的时候，则会降到1000倍。同时将α引入获得的FL的效果会比只用调节因子的还好一些：![image54](pic/Selection_140.png)。梯度为：![image55](pic/Selection_144.png)
+
+![image56](pic/Selection_136.png)
+
+#### Class imbalance
+在 **模型初始化** 的时候，对于二分类，一般情况是会把输出y=-1/1的概率设为相同；但是在样本偏差比较严重的情况时，这里降低预设概率为p(比如0.01)，结果发现能够提高训练的稳定性。
+
+而在two-stage检测中，一般是不做α平衡的，一般用 **two-stage cascade** 和 **biased minibatch sampling** (选择的比例跟α平衡其实是一样的)。这里就用FL来代替这些操作用在one-stage检测中。
+
+#### Retina detector
+使用Resnet+FPN骨架，检测和分类用FCN层，使用P3-P7层按anchor大小从32x32到512x512来做检测。
+
+![image57](pic/Selection_141.png)
+
+#### Effect
+![image58](pic/Selection_145.png)
