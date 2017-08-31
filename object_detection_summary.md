@@ -324,7 +324,7 @@ input image: 600 (短边)
 300 ROI， NMS with IoU = 0.3
 
 # 11. RetinaNet (Focal loss)
-**Focal Loss for Dense Object Detection**: [[Paper](https://arxiv.org/pdf/1708.02002.pdf)] [[Code]()]: Kaiming He, Ross Girshick et.al
+**Focal Loss for Dense Object Detection**: [[Paper](https://arxiv.org/pdf/1708.02002.pdf)] [[Code](https://github.com/unsky/focal-loss)]: Kaiming He, Ross Girshick et.al
 
 **特点：** focal loss来代替standard cross entropy loss，防止由于foreground-background class imbalance (比如1:1000)造成的容易检测的样本(easy negatives)累积的loss超过难检测的样本(hard negatives)从而控制了检测过程。
 思想类似于OHEM，但是这里直接从loss入手，不用像OHEM一样对训练样本进行操作。
