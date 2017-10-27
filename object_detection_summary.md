@@ -283,7 +283,7 @@ IRNN从左到右的update如下，其他方向类似：<br>
 # 10. R-FCN
 **R-FCN: Object Detection via Region-based Fully Convolutional Networks** [[Paper](https://arxiv.org/pdf/1605.06409.pdf)] [[Code]( https://github.com/daijifeng001/R-FCN)] : Kaiming He
 
-**特点**：fully convolutional, computation shared on entire image, position-sensitive score map
+**特点**：fully convolutional, computation shared on entire image, position-sensitive score map，may ignore global info
 
 ![image43](pic/Selection_092.png)
 
@@ -351,3 +351,24 @@ input image: 600 (短边)
 
 #### Effect
 ![image58](pic/Selection_145.png)
+
+# 12. CoupleNet
+**CoupleNet: Coupling Global Structure with Local Parts for Object Detection**: [[Paper](https://arxiv.org/pdf/1708.02863.pdf)] [[Code](https://github.com/tshizys/CoupleNet)]: Hanqing Lu, et al
+
+**特点：** 在RPN生成的proposal上使用Position Sensitive ROI提取local信息和ROI pooling来提取global信息，并结合两者达到更好的检测效果。(速度与RFCN相比稍慢，精度高3个点左右)
+
+#### Net Architecture
+![image59](pic/Selection_161.png)
+
+使用ResNet101作为骨架，通过RPN生成候选proposal，然后分成两条branch：1). local part-sensitive FCN + 2). global region-sensitive FCN。 这两条branch的输出最后需要couple到一起作为object的分数。
+
+**Local FCN**<br>
+与R-FCN相同，对候选proposal进行1x1卷积生成K<sup>2</sup>(C+1)个通道，通过对K<sup>2</sup>进行voting得到每一类的最后score。
+
+**Global FCN**<br>
+与Faster RCNN相同，现在conv4后添加1024d 1x1 conv层降维，然后添加一层ROI pooling层，通过kxk核和1x1 conv层最后输出C+1维向量。为了更好的获取global特征，还从面积为proposal两倍的context区域提取了特征，提取的特征直接连接到proposal提取的特征，输入到后面的ROI wise sub-network。
+
+**Coupling structure**<br>
+global和local分支提取出来的特征需要首先 **normalization** 来确保相同的大小:L2-Norm layer/1x1 conv layer; 然后耦合到一起：element-wise sum, element-wise product and element-wise maximum。测试的结果为：**1x1 conv + element-wise sum**
+
+![image60](pic/Selection_162.png)
